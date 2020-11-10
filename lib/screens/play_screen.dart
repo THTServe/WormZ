@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:audioplayers/audio_cache.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:wormz/utilities/constants.dart';
+import 'package:wormz/utilities/policyclass.dart';
 import 'dart:io';
 import 'package:wormz/utilities/score_storage.dart';
 
@@ -24,11 +27,10 @@ class _PlayScreenState extends State<PlayScreen> {
   @override
   void initState() {
     super.initState();
-    // print('init Start');
+
     widget.storage.readScore().then((int value) {
       _highScore = value;
     });
-    // print('init End');
   }
 
   ///Set up Sounds
@@ -153,7 +155,7 @@ class _PlayScreenState extends State<PlayScreen> {
                     ///Set the conditions to draw the grid
                     var containerColour;
                     var x = index % blocksPerRow;
-                    // print('x = $x');
+
                     var y = (index / blocksPerRow)
                         .floor(); //returns integer of index / blocks per row.
 
@@ -227,6 +229,7 @@ class _PlayScreenState extends State<PlayScreen> {
               ),
               child: FlatButton(
                 onPressed: () {
+                  HapticFeedback.vibrate();
                   if (!isGameRunning) {
                     startGame();
                   } else {
@@ -261,7 +264,6 @@ class _PlayScreenState extends State<PlayScreen> {
 
   ///Start game and timer
   void startGame() {
-    // print('Start play Game');
     timerMilliSecs = 300;
     var duration = Duration(milliseconds: timerMilliSecs);
     wormz.clear();
@@ -288,9 +290,8 @@ class _PlayScreenState extends State<PlayScreen> {
   void endGame() {
     setState(() {
       isGameRunning = false;
-      showAlert();
+      showAlert(context);
     });
-    // print('Game Ending');
   }
 
   ///Move the wormz in whatever direction is needed
@@ -341,7 +342,7 @@ class _PlayScreenState extends State<PlayScreen> {
   ///Check for various end conditions and return true if met
   bool checkEnd() {
     bool result = false;
-    // print('checkEnd Started');
+
     if (!isGameRunning) {
       result = true;
     }
@@ -351,10 +352,10 @@ class _PlayScreenState extends State<PlayScreen> {
         wormz.first[1] >= blocksPerColumn ||
         wormz.first[0] < 0 ||
         wormz.first[0] > blocksPerRow) {
-      // print('wormz hits wall');
       playSound(2);
       result = true;
       dieReason = 'wall';
+      HapticFeedback.heavyImpact();
     }
 
     /// Check if eats itself
@@ -364,6 +365,7 @@ class _PlayScreenState extends State<PlayScreen> {
         playSound(2);
         result = true;
         dieReason = 'self';
+        HapticFeedback.vibrate();
       }
     }
     return result;
@@ -380,6 +382,7 @@ class _PlayScreenState extends State<PlayScreen> {
       int rndX = randomGen.nextInt(blocksPerRow - 2) + 1;
       int rndY = randomGen.nextInt(blocksPerColumn - 2) + 1;
       food = [rndX, rndY];
+      HapticFeedback.vibrate();
     });
   }
 
@@ -389,7 +392,6 @@ class _PlayScreenState extends State<PlayScreen> {
       timerMilliSecs = timerMilliSecs - 10;
     }
     duration = Duration(microseconds: timerMilliSecs);
-    // print('mS = $timerMilliSecs');
   }
 
   void playSound(int soundNum) async {
@@ -397,14 +399,14 @@ class _PlayScreenState extends State<PlayScreen> {
     if (soundNum == 1) {
       player.play('crunch.wav');
     } else if (soundNum == 2) {
-      player.play('Walk1.wav');
+      player.play('walk1.wav');
     } else if (soundNum == 3) {
       player.play('ping.wav');
     }
   }
 
   ///Show Dialog and high score
-  void showAlert() async {
+  void showAlert(BuildContext context) async {
     // Check to see if current score is better than high score
     int currentScore = wormz.length - 2;
     // Check to see if new score is the high score
@@ -502,10 +504,16 @@ class _PlayScreenState extends State<PlayScreen> {
                 ),
                 child: FlatButton(
                     onPressed: () {
-                      Navigator.pop(context);
+                      HapticFeedback.vibrate();
                       newHighScore = false;
+                      Navigator.of(context).pop();
                     },
-                    child: Text('Close'))),
+                    child: Text(
+                      'Close',
+                      style: TextStyle(
+                        color: kTextWht,
+                      ),
+                    ))),
             SizedBox(
               height: 10.0,
             ),
@@ -515,7 +523,9 @@ class _PlayScreenState extends State<PlayScreen> {
     );
 
     showDialog(
-        barrierDismissible: true, context: context, builder: (_) => thisAlert);
+        barrierDismissible: true,
+        context: context,
+        builder: (context) => thisAlert);
   }
 
   ///Gets passed an int that is current length of worm -2.  Checks DB to see if
@@ -524,36 +534,11 @@ class _PlayScreenState extends State<PlayScreen> {
   ///already
   Future<int> checkHighScore(int length) async {
     int validatedHighScore;
-    // print('length = $length');
-    // Read the file.
-    // widget.storage.readScore().then((int valueReturned) {
-    //   //Check if we have a new highScore
-    //   if (length >= valueReturned) {
-    //     validatedHighScore = length;
-    //     writeHighScore(length);
-    //   } else {
-    //     validatedHighScore = valueReturned;
-    //   }
-    // });
-    // print('VHS = $validatedHighScore');
+
     return validatedHighScore;
   }
 
-  // /// Add the file neame to the path to local directory
-  // Future<File> get _localFile async {
-  //   final path = await _localPath;
-  //   return File('$path/highScore.txt');
-  // }
-  //
-  // /// Get the path to local directory for save score file
-  // Future<String> get _localPath async {
-  //   final directory = await getApplicationDocumentsDirectory();
-  //   return directory.path;
-  // }
-  //
-  ///Write the score to the high Score file
   Future<File> writeHighScore(int _newScore) async {
-    // print('Writing = $_newScore');
     return widget.storage.writeScore(_newScore);
   }
 
@@ -585,7 +570,7 @@ class _PlayScreenState extends State<PlayScreen> {
                       letterSpacing: 1.2),
                 ),
                 Text(
-                  'f0',
+                  'FO',
                   style: TextStyle(
                       fontSize: 42.0,
                       fontFamily: 'Monofett',
@@ -595,7 +580,7 @@ class _PlayScreenState extends State<PlayScreen> {
               ],
             ),
             SizedBox(
-              height: 10.0,
+              height: 30.0,
             ),
             Text(
               'Swipe the screen in the direction you want to go.',
@@ -607,7 +592,6 @@ class _PlayScreenState extends State<PlayScreen> {
             ),
             Text(
               'High Score: $_highScore',
-              // _highScore == null ? 'High Score: 0' : 'High Score: $_highScore',
               style: TextStyle(fontSize: 20.0, color: kTextWhtTrans),
             ),
             SizedBox(
@@ -624,12 +608,57 @@ class _PlayScreenState extends State<PlayScreen> {
                 ),
                 child: FlatButton(
                     onPressed: () {
+                      HapticFeedback.vibrate();
                       Navigator.pop(context);
                     },
-                    child: Text('Close'))),
+                    child: Text('Close',
+                        style: TextStyle(
+                          color: kTextWht,
+                        )))),
             SizedBox(
-              height: 10.0,
+              height: 30.0,
             ),
+            RichText(
+                textAlign: TextAlign.center,
+                text: TextSpan(
+                    text:
+                        'By Downloading and using this App you are agreeing to our\n',
+                    style: TextStyle(
+                      color: kGreyTxt,
+                    ),
+                    children: [
+                      TextSpan(
+                          recognizer: TapGestureRecognizer()
+                            ..onTap = () {
+                              showDialog(
+                                  context: context,
+                                  builder: (context) {
+                                    return PolicyDialog(
+                                      mdFileName: 'tc.md',
+                                    );
+                                  });
+                              HapticFeedback.vibrate();
+                            },
+                          text: 'Terms and Conditions',
+                          style: TextStyle(color: kOrange, fontSize: 15.0)),
+                      TextSpan(text: ' - & - '),
+                      TextSpan(
+                          recognizer: TapGestureRecognizer()
+                            ..onTap = () {
+                              HapticFeedback.vibrate();
+                              showDialog(
+                                  context: context,
+                                  builder: (context) {
+                                    return PolicyDialog(
+                                      mdFileName: 'pp.md',
+                                    );
+                                  });
+                              HapticFeedback.vibrate();
+                            },
+                          text: 'Privacy Policy\n',
+                          style: TextStyle(color: kOrange, fontSize: 15.0)),
+                      TextSpan(text: 'Tap above to View')
+                    ])),
           ],
         ),
       ),
