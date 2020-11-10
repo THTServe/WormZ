@@ -399,7 +399,7 @@ class _PlayScreenState extends State<PlayScreen> {
     if (soundNum == 1) {
       player.play('crunch.wav');
     } else if (soundNum == 2) {
-      player.play('walk1.wav');
+      player.play('crash.wav');
     } else if (soundNum == 3) {
       player.play('ping.wav');
     }
